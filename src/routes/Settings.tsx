@@ -12,7 +12,6 @@ import {
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useState,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -21,14 +20,12 @@ import { Checkbox } from '../components/fields/Checkbox';
 import { RadioGroup } from '../components/fields/RadioGroup';
 import { AppContext } from '../context/App';
 import { Theme } from '../types';
-import { apiRequestAuth } from '../utils/api-requests';
 import {
   openExternalLink,
   updateTrayIcon,
   updateTrayTitle,
 } from '../utils/comms';
 import Constants from '../utils/constants';
-import { generateGitHubAPIUrl } from '../utils/helpers';
 import { setTheme } from '../utils/theme';
 
 export const SettingsRoute: FC = () => {
@@ -38,7 +35,7 @@ export const SettingsRoute: FC = () => {
   const [isLinux, setIsLinux] = useState<boolean>(false);
   const [isMacOS, setIsMacOS] = useState<boolean>(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
-  const [repoScope, setRepoScope] = useState<boolean>(false);
+  // const [repoScope, setRepoScope] = useState<boolean>(false);
 
   const openGitHubReleaseNotes = useCallback((version) => {
     openExternalLink(
@@ -72,18 +69,18 @@ export const SettingsRoute: FC = () => {
     });
   }, []);
 
-  useMemo(() => {
-    (async () => {
-      const response = await apiRequestAuth(
-        `${generateGitHubAPIUrl(Constants.DEFAULT_AUTH_OPTIONS.hostname)}`,
-        'GET',
-        accounts.token,
-      );
+  // useMemo(() => {
+  //   (async () => {
+  //     const response = await apiRequestAuth(
+  //       `${generateGitHubAPIUrl(Constants.DEFAULT_AUTH_OPTIONS.hostname)}`,
+  //       'GET',
+  //       accounts.token,
+  //     );
 
-      if (response.headers['x-oauth-scopes'].includes('repo'))
-        setRepoScope(true);
-    })();
-  }, [accounts.token]);
+  //     if (response.headers['x-oauth-scopes'].includes('repo'))
+  //       setRepoScope(true);
+  //   })();
+  // }, [accounts.token]);
 
   const logoutUser = useCallback(() => {
     logout();
@@ -145,15 +142,11 @@ export const SettingsRoute: FC = () => {
           />
           <Checkbox
             name="detailedNotifications"
-            label={`Detailed notifications${
-              !repoScope ? ' (requires repo scope)' : ''
-            }`}
-            checked={repoScope && settings.detailedNotifications}
+            label="Detailed notifications"
+            checked={settings.detailedNotifications}
             onChange={(evt) =>
-              repoScope &&
               updateSetting('detailedNotifications', evt.target.checked)
             }
-            disabled={!repoScope}
             tooltip={
               <div>
                 <div className="pb-3">

@@ -28,8 +28,9 @@ import { clearState, loadState, saveState } from '../utils/storage';
 import { setTheme } from '../utils/theme';
 
 const defaultAccounts: AuthState = {
-  token: null,
-  enterpriseAccounts: [],
+  // token: null,
+  // enterpriseAccounts: [],
+  accounts: [],
   user: null,
 };
 
@@ -107,8 +108,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     settings.participating,
     settings.showBots,
     settings.detailedNotifications,
-    accounts.token,
-    accounts.enterpriseAccounts.length,
+    accounts.accounts,
+    // accounts.enterpriseAccounts.length,
   ]);
 
   useInterval(() => {
@@ -140,7 +141,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const isLoggedIn = useMemo(() => {
-    return !!accounts.token || accounts.enterpriseAccounts.length > 0;
+    return accounts.accounts.length > 0;
   }, [accounts]);
 
   const login = useCallback(async () => {

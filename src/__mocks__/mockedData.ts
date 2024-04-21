@@ -1,8 +1,4 @@
-import type {
-  AccountNotifications,
-  EnterpriseAccount,
-  GitifyUser,
-} from '../types';
+import type { Account, AccountNotifications, GitifyUser } from '../types';
 import type {
   Discussion,
   DiscussionComments,
@@ -13,10 +9,11 @@ import type {
 } from '../typesGithub';
 import Constants from '../utils/constants';
 
-export const mockedEnterpriseAccounts: EnterpriseAccount[] = [
+export const mockedEnterpriseAccounts: Account[] = [
   {
     hostname: 'github.gitify.io',
     token: '1234568790',
+    type: 'github server',
   },
 ];
 

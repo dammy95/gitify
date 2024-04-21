@@ -117,22 +117,33 @@ export const addAccount = (
   hostname,
   user?: GitifyUser,
 ): AuthState => {
-  if (!isEnterpriseHost(hostname)) {
-    return {
-      ...accounts,
-      token,
-      user: user ?? null,
-    };
-  }
+  // if (!isEnterpriseHost(hostname)) {
+  //   return {
+  //     ...accounts,
+  //     token,
+  //     user: user ?? null,
+  //   };
+  // }
 
+  // return {
+  //   ...accounts,
+  //   enterpriseAccounts: [
+  //     ...accounts.enterpriseAccounts,
+  //     {
+  //       token,
+  //       hostname: hostname,
+  //     },
+  //   ],
+  // };
   return {
-    ...accounts,
-    enterpriseAccounts: [
-      ...accounts.enterpriseAccounts,
+    accounts: [
+      ...accounts.accounts,
       {
-        token,
+        token: token,
         hostname: hostname,
+        type: isEnterpriseHost(hostname) ? 'github server' : 'github cloud',
       },
     ],
+    user: user ?? null,
   };
 };

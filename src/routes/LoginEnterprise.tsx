@@ -52,18 +52,15 @@ export const validate = (values: IValues): IFormErrors => {
 };
 
 export const LoginEnterpriseRoute: FC = () => {
-  const {
-    accounts: { enterpriseAccounts },
-    loginEnterprise,
-  } = useContext(AppContext);
+  const { accounts, loginEnterprise } = useContext(AppContext);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (enterpriseAccounts.length) {
+    if (accounts.accounts.length) {
       ipcRenderer.send('reopen-window');
       navigate(-1);
     }
-  }, [enterpriseAccounts]);
+  }, [accounts.accounts]);
 
   const renderForm = (formProps: FormRenderProps) => {
     const { handleSubmit, submitting, pristine } = formProps;

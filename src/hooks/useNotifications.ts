@@ -1,7 +1,9 @@
 import axios, { type AxiosError, type AxiosPromise } from 'axios';
 import { useCallback, useState } from 'react';
 
+import { Notification } from '@electron/remote';
 import type {
+  Account,
   AccountNotifications,
   AuthState,
   GitifyError,
@@ -10,14 +12,7 @@ import type {
 import type { GithubRESTError, Notification } from '../typesGithub';
 import { apiRequestAuth } from '../utils/api-requests';
 import { determineFailureType } from '../utils/api/errors';
-import Constants from '../utils/constants';
-import {
-  generateGitHubAPIUrl,
-  getEnterpriseAccountToken,
-  getTokenForHost,
-  isEnterpriseHost,
-  isGitHubLoggedIn,
-} from '../utils/helpers';
+import { generateGitHubAPIUrl, getTokenForHost } from '../utils/helpers';
 import {
   setTrayIconColor,
   triggerNativeNotifications,
@@ -73,136 +68,67 @@ export const useNotifications = (): NotificationsState => {
   );
 
   const fetchNotifications = useCallback(
-    async (accounts: AuthState, settings: SettingsState) => {
-      function getNotifications(hostname: string, token: string): AxiosPromise {
-        const endpointSuffix = `notifications?participating=${settings.participating}`;
-        const url = `${generateGitHubAPIUrl(hostname)}${endpointSuffix}`;
-        return apiRequestAuth(url, 'GET', token);
+    async (auth: AuthState, settings: SettingsState) => {
+      async function getNotifications(account: Account) {
+        const url = generateGitHubAPIUrl(account.hostname);
+        url.pathname = '/notifications';
+        url.searchParams.set('participating', String(settings.participating));
+
+        return apiRequestAuth(url.href, 'GET', account.token);
       }
 
-      function getGitHubNotifications() {
-        if (!isGitHubLoggedIn(accounts)) {
-          return;
-        }
-        return getNotifications(
-          Constants.DEFAULT_AUTH_OPTIONS.hostname,
-          accounts.token,
-        );
-      }
+      // function getGitHubNotifications() {
+      //   if (!isGitHubLoggedIn(accounts)) {
+      //     return;
+      //   }
+      //   return getNotifications(
+      //     Constants.DEFAULT_AUTH_OPTIONS.hostname,
+      //     accounts.token,
+      //   );
+      // }
 
-      function getEnterpriseNotifications() {
-        return accounts.enterpriseAccounts.map((account) => {
-          return getNotifications(account.hostname, account.token);
+      // function getEnterpriseNotifications() {
+      //   return accounts.enterpriseAccounts.map((account) => {
+      //     return getNotifications(account.hostname, account.token);
+      //   });
+      // }
+
+      function getAllNotifications() {
+        return auth.accounts.map((account) => {
+          return {
+            account: account,
+            notifications: getNotifications(account),
+          };
         });
       }
 
       setIsFetching(true);
 
-      return axios
-        .all([getGitHubNotifications(), ...getEnterpriseNotifications()])
-        .then(
-          axios.spread((gitHubNotifications, ...entAccNotifications) => {
-            setRequestFailed(false);
-            const enterpriseNotifications = entAccNotifications.map(
-              (accountNotifications) => {
-                const { hostname } = new URL(accountNotifications.config.url);
-                return {
-                  hostname,
-                  notifications: accountNotifications.data.map(
-                    (notification: Notification) => {
-                      return {
-                        ...notification,
-                        hostname: hostname,
-                      };
-                    },
-                  ),
-                };
-              },
-            );
-
-            const data = isGitHubLoggedIn(accounts)
-              ? [
-                  ...enterpriseNotifications,
-                  {
-                    hostname: Constants.DEFAULT_AUTH_OPTIONS.hostname,
-                    notifications: gitHubNotifications.data.map(
-                      (notification: Notification) => {
-                        return {
-                          ...notification,
-                          hostname: Constants.DEFAULT_AUTH_OPTIONS.hostname,
-                        };
-                      },
-                    ),
-                  },
-                ]
-              : [...enterpriseNotifications];
-
-            axios
-              .all(
-                data.map(async (accountNotifications) => {
-                  return {
-                    hostname: accountNotifications.hostname,
-                    notifications: await axios
-                      .all<Notification>(
-                        accountNotifications.notifications.map(
-                          async (notification: Notification) => {
-                            if (!settings.detailedNotifications) {
-                              return notification;
-                            }
-
-                            const token = getTokenForHost(
-                              notification.hostname,
-                              accounts,
-                            );
-
-                            const additionalSubjectDetails =
-                              await getGitifySubjectDetails(
-                                notification,
-                                token,
-                              );
-
-                            return {
-                              ...notification,
-                              subject: {
-                                ...notification.subject,
-                                ...additionalSubjectDetails,
-                              },
-                            };
-                          },
-                        ),
-                      )
-                      .then((notifications) => {
-                        return notifications.filter((notification) => {
-                          if (
-                            !settings.showBots &&
-                            notification.subject?.user?.type === 'Bot'
-                          ) {
-                            return false;
-                          }
-
-                          return true;
-                        });
-                      }),
-                  };
-                }),
-              )
-              .then((parsedNotifications) => {
-                setNotifications(parsedNotifications);
-                triggerNativeNotifications(
-                  notifications,
-                  parsedNotifications,
-                  settings,
-                  accounts,
-                );
-                setIsFetching(false);
-              });
+      try {
+        const allNotifications: AccountNotifications[] = await Promise.all(
+          getAllNotifications().map(async (notificationPromise) => {
+            const { account, notifications } = await notificationPromise;
+            return { account, notifications: (await notifications).data };
           }),
-        )
-        .catch((err: AxiosError<GithubRESTError>) => {
-          setIsFetching(false);
-          setRequestFailed(true);
-          setErrorDetails(determineFailureType(err));
-        });
+        );
+
+        console.log('all notifications: ', JSON.stringify(allNotifications));
+
+        setNotifications(allNotifications);
+        triggerNativeNotifications(
+          notifications,
+          allNotifications,
+          settings,
+          auth,
+        );
+        setIsFetching(false);
+      } catch (err) {
+        const error = err as AxiosError<GithubRESTError>;
+
+        setIsFetching(false);
+        setRequestFailed(true);
+        setErrorDetails(determineFailureType(error));
+      }
     },
     [notifications],
   );
@@ -211,14 +137,15 @@ export const useNotifications = (): NotificationsState => {
     async (accounts: AuthState, id: string, hostname: string) => {
       setIsFetching(true);
 
-      const isEnterprise = isEnterpriseHost(hostname);
-      const token = isEnterprise
-        ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
-        : accounts.token;
+      // const isEnterprise = isEnterpriseHost(hostname);
+      // const token = isEnterprise
+      //   ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
+      //   : accounts.token;
+      const token = getTokenForHost(hostname, accounts);
 
       try {
         await apiRequestAuth(
-          `${generateGitHubAPIUrl(hostname)}notifications/threads/${id}`,
+          `$generateGitHubAPIUrl(hostname)notifications/threads/$id`,
           'PATCH',
           token,
           {},
@@ -244,14 +171,16 @@ export const useNotifications = (): NotificationsState => {
     async (accounts: AuthState, id: string, hostname: string) => {
       setIsFetching(true);
 
-      const isEnterprise = isEnterpriseHost(hostname);
-      const token = isEnterprise
-        ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
-        : accounts.token;
+      // const isEnterprise = isEnterpriseHost(hostname);
+      // const token = isEnterprise
+      //   ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
+      //   : accounts.token;
+
+      const token = getTokenForHost(hostname, accounts);
 
       try {
         await apiRequestAuth(
-          `${generateGitHubAPIUrl(hostname)}notifications/threads/${id}`,
+          `$generateGitHubAPIUrl(hostname)notifications/threads/$id`,
           'DELETE',
           token,
           {},
@@ -277,16 +206,18 @@ export const useNotifications = (): NotificationsState => {
     async (accounts: AuthState, id: string, hostname: string) => {
       setIsFetching(true);
 
-      const isEnterprise = isEnterpriseHost(hostname);
-      const token = isEnterprise
-        ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
-        : accounts.token;
+      // const isEnterprise = isEnterpriseHost(hostname);
+      // const token = isEnterprise
+      //   ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
+      //   : accounts.token;
+
+      const token = getTokenForHost(hostname, accounts);
 
       try {
         await apiRequestAuth(
-          `${generateGitHubAPIUrl(
+          `$generateGitHubAPIUrl(
             hostname,
-          )}notifications/threads/${id}/subscription`,
+          )notifications/threads/$id/subscription`,
           'PUT',
           token,
           { ignored: true },
@@ -303,10 +234,12 @@ export const useNotifications = (): NotificationsState => {
     async (accounts: AuthState, repoSlug: string, hostname: string) => {
       setIsFetching(true);
 
-      const isEnterprise = isEnterpriseHost(hostname);
-      const token = isEnterprise
-        ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
-        : accounts.token;
+      // const isEnterprise = isEnterpriseHost(hostname);
+      // const token = isEnterprise
+      //   ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
+      //   : accounts.token;
+
+      const token = getTokenForHost(hostname, accounts);
 
       try {
         await apiRequestAuth(

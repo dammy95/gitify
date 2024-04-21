@@ -13,17 +13,22 @@ import { openExternalLink } from '../utils/comms';
 import { Constants } from './constants';
 import { getCheckSuiteAttributes, getWorkflowRunAttributes } from './subject';
 
-export function isGitHubLoggedIn(accounts: AuthState): boolean {
-  return accounts.token != null;
-}
+// export function isGitHubLoggedIn(accounts: AuthState): boolean {
+//   return accounts.token != null;
+// }
 
+// TODO - should be able to get the token straight from the account
 export function getTokenForHost(hostname: string, accounts: AuthState): string {
-  const isEnterprise = isEnterpriseHost(hostname);
-  const token = isEnterprise
-    ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
-    : accounts.token;
+  console.log('Token hostname', hostname);
+  console.log('Token accounts', JSON.stringify(accounts));
+  return accounts.accounts.find((obj) => hostname.endsWith(obj.hostname)).token;
 
-  return token;
+  // const isEnterprise = isEnterpriseHost(hostname);
+  // const token = isEnterprise
+  //   ? getEnterpriseAccountToken(hostname, accounts.enterpriseAccounts)
+  //   : accounts.token;
+
+  // return token;
 }
 
 export function getEnterpriseAccountToken(
@@ -37,11 +42,11 @@ export function isEnterpriseHost(hostname: string): boolean {
   return !hostname.endsWith(Constants.DEFAULT_AUTH_OPTIONS.hostname);
 }
 
-export function generateGitHubAPIUrl(hostname) {
+export function generateGitHubAPIUrl(hostname): URL {
   const isEnterprise = isEnterpriseHost(hostname);
   return isEnterprise
-    ? `https://${hostname}/api/v3/`
-    : `https://api.${hostname}/`;
+    ? new URL(`https://${hostname}/api/v3`)
+    : new URL(`https://api.${hostname}`);
 }
 
 export function addNotificationReferrerIdToUrl(

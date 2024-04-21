@@ -1,9 +1,19 @@
 import type { Notification } from './typesGithub';
 
 export interface AuthState {
-  token?: string;
-  enterpriseAccounts: EnterpriseAccount[];
+  // token?: string;
+  // enterpriseAccounts: EnterpriseAccount[];
+  accounts: Account[];
   user: GitifyUser | null;
+}
+
+export type AccountType = 'github cloud' | 'github server';
+
+export interface Account {
+  // user: GitifyUser;
+  hostname: string;
+  type: AccountType;
+  token: string;
 }
 
 export type SettingsState = AppearanceSettingsState &
@@ -46,7 +56,8 @@ export interface EnterpriseAccount {
 }
 
 export interface AccountNotifications {
-  hostname: string;
+  // hostname: string;
+  account: Account;
   notifications: Notification[];
 }
 

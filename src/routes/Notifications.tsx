@@ -36,8 +36,8 @@ export const NotificationsRoute: FC = () => {
     <div className="flex flex-col flex-1 bg-white dark:bg-gray-dark">
       {notifications.map((account) => (
         <AccountNotifications
-          key={account.hostname}
-          hostname={account.hostname}
+          key={account.account.hostname}
+          hostname={account.account.hostname}
           notifications={account.notifications}
           showAccountHostname={
             hasMultipleAccounts || settings.showAccountHostname
