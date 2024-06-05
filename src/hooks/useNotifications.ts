@@ -6,6 +6,7 @@ import type {
   SettingsState,
   Status,
 } from '../types';
+import type { Notification } from '../typesGitHub';
 import {
   ignoreNotificationThreadSubscription,
   markNotificationThreadAsDone,
@@ -13,7 +14,6 @@ import {
   markRepositoryNotificationsAsRead,
 } from '../utils/api/client';
 import { determineFailureType } from '../utils/api/errors';
-import { getAccountForHost } from '../utils/helpers';
 import {
   getAllNotifications,
   setTrayIconColor,
@@ -36,26 +36,22 @@ interface NotificationsState {
   markNotificationRead: (
     auth: AuthState,
     settings: SettingsState,
-    id: string,
-    hostname: string,
+    notification: Notification,
   ) => Promise<void>;
   markNotificationDone: (
     auth: AuthState,
     settings: SettingsState,
-    id: string,
-    hostname: string,
+    notification: Notification,
   ) => Promise<void>;
   unsubscribeNotification: (
     auth: AuthState,
     settings: SettingsState,
-    id: string,
-    hostname: string,
+    notification: Notification,
   ) => Promise<void>;
   markRepoNotifications: (
     auth: AuthState,
     settings: SettingsState,
-    repoSlug: string,
-    hostname: string,
+    notification: Notification,
   ) => Promise<void>;
   markRepoNotificationsDone: (
     auth: AuthState,
@@ -102,21 +98,22 @@ export const useNotifications = (): NotificationsState => {
     async (
       auth: AuthState,
       settings: SettingsState,
-      id: string,
-      hostname: string,
+      notification: Notification,
     ) => {
       setStatus('loading');
 
-      const account = getAccountForHost(hostname, auth);
-
       try {
-        await markNotificationThreadAsRead(id, hostname, account.token);
+        await markNotificationThreadAsRead(
+          notification.id,
+          notification.account.hostname,
+          notification.account.token,
+        );
 
         const updatedNotifications = removeNotification(
           settings,
-          id,
+          notification.id,
           notifications,
-          hostname,
+          notification.account.hostname,
         );
 
         setNotifications(updatedNotifications);
@@ -133,21 +130,22 @@ export const useNotifications = (): NotificationsState => {
     async (
       auth: AuthState,
       settings: SettingsState,
-      id: string,
-      hostname: string,
+      notification: Notification,
     ) => {
       setStatus('loading');
 
-      const account = getAccountForHost(hostname, auth);
-
       try {
-        await markNotificationThreadAsDone(id, hostname, account.token);
+        await markNotificationThreadAsDone(
+          notification.id,
+          notification.account.hostname,
+          notification.account.token,
+        );
 
         const updatedNotifications = removeNotification(
           settings,
-          id,
+          notification.id,
           notifications,
-          hostname,
+          notification.account.hostname,
         );
 
         setNotifications(updatedNotifications);
@@ -164,16 +162,17 @@ export const useNotifications = (): NotificationsState => {
     async (
       auth: AuthState,
       settings: SettingsState,
-      id: string,
-      hostname: string,
+      notification: Notification,
     ) => {
       setStatus('loading');
 
-      const account = getAccountForHost(hostname, auth);
-
       try {
-        await ignoreNotificationThreadSubscription(id, hostname, account.token);
-        await markNotificationRead(auth, settings, id, hostname);
+        await ignoreNotificationThreadSubscription(
+          notification.id,
+          notification.account.hostname,
+          notification.account.token,
+        );
+        await markNotificationRead(auth, settings, notification);
         setStatus('success');
       } catch (err) {
         setStatus('success');
@@ -186,23 +185,20 @@ export const useNotifications = (): NotificationsState => {
     async (
       auth: AuthState,
       settings: SettingsState,
-      repoSlug: string,
-      hostname: string,
+      notification: Notification,
     ) => {
       setStatus('loading');
 
-      const account = getAccountForHost(hostname, auth);
-
       try {
         await markRepositoryNotificationsAsRead(
-          repoSlug,
-          hostname,
-          account.token,
+          notification.repository.full_name,
+          notification.account.hostname,
+          notification.account.token,
         );
         const updatedNotifications = removeNotifications(
-          repoSlug,
+          notification.repository.full_name,
           notifications,
-          hostname,
+          notification.account.hostname,
         );
 
         setNotifications(updatedNotifications);
@@ -219,32 +215,29 @@ export const useNotifications = (): NotificationsState => {
     async (
       auth: AuthState,
       settings: SettingsState,
-      repoSlug: string,
-      hostname: string,
+      notification: Notification,
     ) => {
       setStatus('loading');
 
       try {
+        // TODO : Adam fix this
         const accountIndex = notifications.findIndex(
           (accountNotifications) =>
-            accountNotifications.account.hostname === hostname,
+            accountNotifications.account.hostname ===
+            notification.account.hostname,
         );
 
         if (accountIndex !== -1) {
           const notificationsToRemove = notifications[
             accountIndex
           ].notifications.filter(
-            (notification) => notification.repository.full_name === repoSlug,
+            (notif) =>
+              notif.repository.full_name === notification.repository.full_name,
           );
 
           await Promise.all(
             notificationsToRemove.map((notification) =>
-              markNotificationDone(
-                auth,
-                settings,
-                notification.id,
-                notifications[accountIndex].account.hostname,
-              ),
+              markNotificationDone(auth, settings, notification),
             ),
           );
         }

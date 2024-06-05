@@ -5,6 +5,7 @@ export const removeNotifications = (
   notifications: AccountNotifications[],
   hostname: string,
 ): AccountNotifications[] => {
+  // TODO - Adam Fix this
   const accountIndex = notifications.findIndex(
     (accountNotifications) =>
       accountNotifications.account.hostname === hostname,

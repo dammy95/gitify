@@ -21,10 +21,6 @@ export function isOAuthAppLoggedIn(auth: AuthState): boolean {
   return auth.accounts.some((account) => account.method === 'OAuth App');
 }
 
-export function getAccountForHost(hostname: string, auth: AuthState): Account {
-  return auth.accounts.find((account) => hostname.endsWith(account.hostname));
-}
-
 export function getPlatformFromHostname(hostname: string): PlatformType {
   return hostname.endsWith(Constants.DEFAULT_AUTH_OPTIONS.hostname)
     ? 'GitHub Cloud'
